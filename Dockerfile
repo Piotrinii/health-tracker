@@ -7,6 +7,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY bot/ bot/
 
-VOLUME /data
-
 CMD ["python", "-m", "bot.main"]
