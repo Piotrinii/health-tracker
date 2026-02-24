@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 from bot.config import Settings
 from bot.db import save_transcript, get_stats, set_setting, save_last_meal_time
 from bot.transcribe import transcribe_voice
-from bot.oura import fetch_and_store, backfill
+from bot.oura import backfill
 from bot.analysis import run_analysis
 
 DUBAI_TZ = timezone(timedelta(hours=4))
@@ -24,26 +24,27 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     chat_id = str(update.effective_chat.id)
     set_setting(settings.db_path, "chat_id", chat_id)
     await update.message.reply_text(
-        "Health tracker active. I'll store your voice notes and pull Oura data daily.\n\n"
+        "Health tracker active.\n\n"
         "Commands:\n"
-        "/checklist [date] - fill in daily RHR factors checklist\n"
-        "/analyze [days] - analyze patterns (default 30 days)\n"
-        "/analyze_week - analyze last 7 days\n"
-        "/pull_oura [date] - manually fetch Oura data\n"
-        "/backfill YYYY-MM-DD YYYY-MM-DD - fetch a date range from Oura\n"
+        "/checklist - daily RHR factors checklist\n"
+        "/analyze [days] - fetch Oura + analyze (default 30 days)\n"
+        "/analyze_week - fetch Oura + analyze last 7 days\n"
+        "/analyze_all - fetch Oura + analyze all data\n"
         "/status - see data counts\n"
-        "/help - show this message"
+        "/help - show this message\n\n"
+        "Send 'l' to log last meal time.\n"
+        "Send a voice note to log your day."
     )
 
 
 async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
-        "Send me a voice note about your day and I'll transcribe and store it.\n\n"
-        "/checklist [date] - daily RHR factors checklist\n"
-        "/analyze [days] - run AI analysis on your data (default 30 days)\n"
-        "/analyze_week - analyze last 7 days\n"
-        "/pull_oura [date] - fetch Oura data for a date (default: yesterday)\n"
-        "/backfill START END - fetch Oura data for a date range (YYYY-MM-DD)\n"
+        "Send a voice note about your day and I'll transcribe and store it.\n"
+        "Send 'l' to log last meal time.\n\n"
+        "/checklist - daily RHR factors checklist\n"
+        "/analyze [days] - fetch Oura + analyze (default 30 days)\n"
+        "/analyze_week - fetch Oura + analyze last 7 days\n"
+        "/analyze_all - fetch Oura + analyze all data\n"
         "/status - see how much data you have\n"
     )
 
@@ -123,10 +124,19 @@ async def analyze_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     args = context.args
     days_back = int(args[0]) if args else 30
 
-    await update.message.reply_text(f"Analyzing {days_back} days of data...")
+    end = date.today().isoformat()
+    start = (date.today() - timedelta(days=days_back)).isoformat()
+
+    await update.message.reply_text(f"Fetching Oura data for {days_back} days...")
+    try:
+        count = backfill(settings.oura_personal_token, settings.db_path, start, end)
+        await update.message.reply_text(f"Oura: {count} days fetched. Running analysis...")
+    except Exception as e:
+        logger.exception("Oura fetch error during analysis")
+        await update.message.reply_text(f"Oura fetch failed ({e}), analyzing with existing data...")
+
     try:
         result = run_analysis(settings.anthropic_api_key, settings.db_path, settings.analysis_model, days_back)
-        # Split long messages at paragraph boundaries
         for chunk in _split_message(result):
             await update.message.reply_text(chunk)
     except Exception as e:
@@ -137,6 +147,39 @@ async def analyze_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def analyze_week_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.args = ["7"]
     await analyze_handler(update, context)
+
+
+async def analyze_all_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    settings = _get_settings(context)
+    stats = get_stats(settings.db_path)
+
+    # Find earliest data point to determine total range
+    earliest = stats.get("earliest_date")
+    if earliest:
+        days_back = (date.today() - date.fromisoformat(earliest)).days + 1
+    else:
+        days_back = 365  # default to 1 year if no data yet
+
+    # Fetch at most 365 days of Oura (API limit / practical)
+    oura_days = min(days_back, 365)
+    end = date.today().isoformat()
+    start = (date.today() - timedelta(days=oura_days)).isoformat()
+
+    await update.message.reply_text(f"Fetching Oura data for {oura_days} days...")
+    try:
+        count = backfill(settings.oura_personal_token, settings.db_path, start, end)
+        await update.message.reply_text(f"Oura: {count} days fetched. Running analysis on all {days_back} days...")
+    except Exception as e:
+        logger.exception("Oura fetch error during analyze_all")
+        await update.message.reply_text(f"Oura fetch failed ({e}), analyzing with existing data...")
+
+    try:
+        result = run_analysis(settings.anthropic_api_key, settings.db_path, settings.analysis_model, days_back)
+        for chunk in _split_message(result):
+            await update.message.reply_text(chunk)
+    except Exception as e:
+        logger.exception("Analysis error")
+        await update.message.reply_text(f"Error running analysis: {e}")
 
 
 async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

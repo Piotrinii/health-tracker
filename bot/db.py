@@ -254,11 +254,20 @@ def get_stats(db_path: str) -> dict:
     last_analysis = conn.execute("SELECT created_at FROM analyses ORDER BY id DESC LIMIT 1").fetchone()
     last_transcript = conn.execute("SELECT date FROM transcripts ORDER BY date DESC LIMIT 1").fetchone()
     last_oura = conn.execute("SELECT date FROM oura_data ORDER BY date DESC LIMIT 1").fetchone()
+    first_transcript = conn.execute("SELECT date FROM transcripts ORDER BY date ASC LIMIT 1").fetchone()
+    first_oura = conn.execute("SELECT date FROM oura_data ORDER BY date ASC LIMIT 1").fetchone()
+    first_checklist = conn.execute("SELECT date FROM daily_checklist ORDER BY date ASC LIMIT 1").fetchone()
     conn.close()
+
+    # Earliest date across all data sources
+    earliest_dates = [d["date"] for d in [first_transcript, first_oura, first_checklist] if d]
+    earliest = min(earliest_dates) if earliest_dates else None
+
     return {
         "transcript_count": transcript_count,
         "oura_count": oura_count,
         "last_analysis": last_analysis["created_at"] if last_analysis else None,
         "last_transcript_date": last_transcript["date"] if last_transcript else None,
         "last_oura_date": last_oura["date"] if last_oura else None,
+        "earliest_date": earliest,
     }

@@ -13,15 +13,14 @@ from bot.handlers import (
     voice_handler,
     date_handler,
     yesterday_handler,
-    pull_oura_handler,
-    backfill_handler,
     analyze_handler,
     analyze_week_handler,
+    analyze_all_handler,
     status_handler,
     last_meal_handler,
 )
 from bot.checklist import build_checklist_handler
-from bot.oura import fetch_and_store
+from bot.oura import fetch_and_store  # used by daily_oura_job
 
 logging.basicConfig(
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
@@ -76,10 +75,9 @@ def main() -> None:
     app.add_handler(CommandHandler("help", help_handler))
     app.add_handler(CommandHandler("date", date_handler))
     app.add_handler(CommandHandler("yesterday", yesterday_handler))
-    app.add_handler(CommandHandler("pull_oura", pull_oura_handler))
-    app.add_handler(CommandHandler("backfill", backfill_handler))
     app.add_handler(CommandHandler("analyze", analyze_handler))
     app.add_handler(CommandHandler("analyze_week", analyze_week_handler))
+    app.add_handler(CommandHandler("analyze_all", analyze_all_handler))
     app.add_handler(CommandHandler("status", status_handler))
 
     # Checklist conversation (must be added before the generic voice handler)
