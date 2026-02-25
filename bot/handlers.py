@@ -7,7 +7,7 @@ from telegram.ext import ContextTypes
 from bot.config import Settings
 from bot.db import save_transcript, get_stats, set_setting, save_last_meal_time
 from bot.transcribe import transcribe_voice
-from bot.oura import backfill
+from bot.oura import backfill  # used by analyze handlers
 from bot.analysis import run_analysis
 
 DUBAI_TZ = timezone(timedelta(hours=4))
@@ -30,7 +30,6 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "/analyze [days] - fetch Oura + analyze (default 30 days)\n"
         "/analyze_week - fetch Oura + analyze last 7 days\n"
         "/analyze_all - fetch Oura + analyze all data\n"
-        "/status - see data counts\n"
         "/help - show this message\n\n"
         "Send 'l' to log last meal time.\n"
         "Send a voice note to log your day."
@@ -45,7 +44,6 @@ async def help_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/analyze [days] - fetch Oura + analyze (default 30 days)\n"
         "/analyze_week - fetch Oura + analyze last 7 days\n"
         "/analyze_all - fetch Oura + analyze all data\n"
-        "/status - see how much data you have\n"
     )
 
 
@@ -83,40 +81,6 @@ async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     except Exception as e:
         logger.exception("Voice handler error")
         await update.message.reply_text(f"Error transcribing: {e}")
-
-
-async def pull_oura_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    settings = _get_settings(context)
-    args = context.args
-    day = args[0] if args else (date.today() - timedelta(days=1)).isoformat()
-
-    await update.message.reply_text(f"Fetching Oura data for {day}...")
-    try:
-        data = fetch_and_store(settings.oura_personal_token, settings.db_path, day)
-        sleep = data.get("sleep") or {}
-        hr = sleep.get("lowest_heart_rate", "N/A")
-        hrv = sleep.get("average_hrv", "N/A")
-        await update.message.reply_text(f"Stored: Resting HR {hr} bpm, HRV {hrv} ms")
-    except Exception as e:
-        logger.exception("Oura pull error")
-        await update.message.reply_text(f"Error: {e}")
-
-
-async def backfill_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    settings = _get_settings(context)
-    args = context.args
-    if not args or len(args) < 2:
-        await update.message.reply_text("Usage: /backfill YYYY-MM-DD YYYY-MM-DD")
-        return
-
-    start, end = args[0], args[1]
-    await update.message.reply_text(f"Backfilling Oura data from {start} to {end}...")
-    try:
-        count = backfill(settings.oura_personal_token, settings.db_path, start, end)
-        await update.message.reply_text(f"Done. Stored {count} days of data.")
-    except Exception as e:
-        logger.exception("Backfill error")
-        await update.message.reply_text(f"Error: {e}")
 
 
 async def analyze_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -180,20 +144,6 @@ async def analyze_all_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     except Exception as e:
         logger.exception("Analysis error")
         await update.message.reply_text(f"Error running analysis: {e}")
-
-
-async def status_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    settings = _get_settings(context)
-    stats = get_stats(settings.db_path)
-    lines = [
-        "Status:",
-        f"  Voice notes: {stats['transcript_count']}",
-        f"  Oura days: {stats['oura_count']}",
-        f"  Last voice note: {stats['last_transcript_date'] or 'none'}",
-        f"  Last Oura data: {stats['last_oura_date'] or 'none'}",
-        f"  Last analysis: {stats['last_analysis'] or 'never'}",
-    ]
-    await update.message.reply_text("\n".join(lines))
 
 
 async def last_meal_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

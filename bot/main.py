@@ -16,7 +16,6 @@ from bot.handlers import (
     analyze_handler,
     analyze_week_handler,
     analyze_all_handler,
-    status_handler,
     last_meal_handler,
 )
 from bot.checklist import build_checklist_handler
@@ -78,7 +77,7 @@ def main() -> None:
     app.add_handler(CommandHandler("analyze", analyze_handler))
     app.add_handler(CommandHandler("analyze_week", analyze_week_handler))
     app.add_handler(CommandHandler("analyze_all", analyze_all_handler))
-    app.add_handler(CommandHandler("status", status_handler))
+
 
     # Checklist conversation (must be added before the generic voice handler)
     app.add_handler(build_checklist_handler())
