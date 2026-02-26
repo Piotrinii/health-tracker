@@ -12,7 +12,7 @@ class Settings:
     anthropic_api_key: str
     oura_personal_token: str
     db_path: str = "data/health.db"
-    oura_pull_hour: int = 10
+    oura_pull_hour: int = 14
     checklist_reminder_hour: int = 20
     checklist_reminder_minute: int = 50
     analysis_model: str = "claude-sonnet-4-20250514"
@@ -29,7 +29,7 @@ def load_settings() -> Settings:
         anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
         oura_personal_token=os.environ["OURA_PERSONAL_TOKEN"],
         db_path=db_path,
-        oura_pull_hour=int(os.environ.get("OURA_PULL_HOUR", "10")),
+        oura_pull_hour=int(os.environ.get("OURA_PULL_HOUR", "14")),
         checklist_reminder_hour=int(os.environ.get("CHECKLIST_REMINDER_HOUR", "20")),
         checklist_reminder_minute=int(os.environ.get("CHECKLIST_REMINDER_MINUTE", "50")),
     )
