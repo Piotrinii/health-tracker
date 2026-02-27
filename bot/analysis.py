@@ -37,8 +37,8 @@ def _build_prompt(transcripts: list[dict], oura_days: list[dict], checklists: li
     else:
         parts.append("_No voice notes recorded in this period._\n")
 
-    # Oura data
-    parts.append("\n## Oura Ring Biometric Data\n")
+    # Oura sleep data
+    parts.append("\n## Oura Ring Sleep Data\n")
     if oura_days:
         for d in oura_days:
             total_h = f"{d['total_sleep_s'] / 3600:.1f}" if d.get("total_sleep_s") else "N/A"
@@ -53,11 +53,9 @@ def _build_prompt(transcripts: list[dict], oura_days: list[dict], checklists: li
             parts.append(f"- Sleep: {total_h}h (Deep: {deep_h}h, REM: {rem_h}h, Light: {light_h}h)")
             parts.append(f"- Sleep efficiency: {d.get('sleep_efficiency', 'N/A')}%")
             parts.append(f"- Breathing rate: {d.get('breathing_rate', 'N/A')}/min")
-            parts.append(f"- Readiness: {d.get('readiness_score', 'N/A')}")
-            parts.append(f"- Activity: {d.get('activity_score', 'N/A')} | Steps: {d.get('steps', 'N/A')}")
             parts.append("")
     else:
-        parts.append("_No Oura data recorded in this period._\n")
+        parts.append("_No Oura sleep data recorded in this period._\n")
 
     # Daily checklist data
     parts.append("\n## Daily Checklist (RHR-Influencing Factors)\n")
@@ -91,17 +89,15 @@ def _build_prompt(transcripts: list[dict], oura_days: list[dict], checklists: li
     # Task
     parts.append("## Your Task\n")
     parts.append(
-        "Analyze this data and identify:\n"
-        "1. **RHR Correlations**: which checklist factors correlate most with lower/higher resting heart rate? "
-        "Compare nights where nasal strips, mouth taping, sauna, diaphragm work, etc. were done vs not.\n"
-        "2. **Patterns**: recurring correlations between behaviors and biometrics "
-        "(e.g., 'on days after X, your HRV tends to be higher')\n"
-        "3. **Anomalies**: unusual readings and what might explain them based on the voice notes and checklist\n"
-        "4. **Trends**: multi-week trends (improving/declining sleep, HRV, resting HR)\n"
-        "5. **Unexpected findings**: anything interesting that wasn't explicitly tracked as a health metric "
-        "but seems to correlate with biometric changes\n"
-        "6. **Actionable suggestions**: specific, concrete recommendations based on the patterns\n\n"
-        "Be specific. Reference actual dates and numbers. Don't hedge with generic health advice."
+        "Analyze the SLEEP data and identify:\n"
+        "1. **RHR during sleep**: how is the resting heart rate trending? Which nights were lowest/highest and why?\n"
+        "2. **HRV during sleep**: how is HRV trending? Which nights were best/worst?\n"
+        "3. **Sleep quality**: total duration, deep/REM/light balance, efficiency, breathing rate\n"
+        "4. **Correlations with checklist**: which behaviors (nasal strips, mouth taping, sauna, last meal time, "
+        "caffeine cutoff, etc.) correlate with better or worse sleep metrics?\n"
+        "5. **Actionable suggestions**: specific, concrete recommendations based on the patterns\n\n"
+        "Focus exclusively on sleep metrics. Be specific — reference actual dates and numbers. "
+        "Don't hedge with generic health advice."
     )
 
     return "\n".join(parts)
